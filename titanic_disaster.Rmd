@@ -1,0 +1,231 @@
+---
+title: "Titanic Disaster"
+author: "Eero Lehtonen"
+date: "6/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(RANN)
+
+library(parallel)
+library(doParallel)
+
+```
+
+## Summary
+
+In this project the goal was to predict, which passanger survived the Titanic shipwreck.
+
+Approach:
+
+1. Loading dataset exploring dataset structure and features
+2. Cleaning dataset (Removing unusable columns, transforming factor variables, Creating dummy variables)
+3. PreProcessing (Data normalization, imputation)
+4. Training the model and making predictions (Creating a baseline prediction, building a random forest classifier, making predictions & creating a submission file)
+
+Packages used:
+
+dplyr, caret, ggplot2, RANN, parallel, doParallel
+
+Predictors:
+
+Features describing the passanger e.g. sex, Age and number of siblings
+
+Outcomes:
+
+- Passanger survived
+- Passanger did not survive
+
+
+## Background
+
+The sinking of the Titanic is one of the most infamous shipwrecks in history.
+
+On April 15, 1912, during her maiden voyage, the widely considered “unsinkable” RMS Titanic sank after colliding with an iceberg. Unfortunately, there weren’t enough lifeboats for everyone onboard, resulting in the death of 1502 out of 2224 passengers and crew.
+
+While there was some element of luck involved in surviving, it seems some groups of people were more likely to survive than others.
+
+In this challenge, we ask you to build a predictive model that answers the question: “what sorts of people were more likely to survive?” using passenger data (ie name, age, gender, socio-economic class, etc).
+
+(From Kaggle challenge)
+
+
+## Loading Dataset and Exploring Features
+
+We begin the the analysis process by loading the datasets and separating predictors from outcome. We also take separately the ids needed for the kaggle submission file. 
+
+```{r }
+
+train <- read.csv("data/train.csv")
+test_x <- read.csv("data/test.csv")
+test_id <- test_x$PassengerId
+
+# divide to x and y
+
+train_x <- select(train, -Survived)
+train_y <- select(train, Survived)
+
+```
+
+By looking at the columns of the dataset, we see that there are some columns that seem to be used for book keeping (PassangeId, Ticket and Name). Also there seem to be some factor variables that are of int format. 
+
+```{r }
+
+str(train)
+
+```
+
+Next we explore the portion of NA variables in each column of the dataset. Only Age-column seems to have NA-values. The percentage of NA-values is under 20%, so we can still use the column for analysis. Later on we just need to use some imputing technique to deal with the missing data.
+
+```{r }
+
+colSums(is.na(train)) / dim(train)[1]
+
+```
+
+Repeating the process with "" -values. The Cabin column has a significant portion of "" -rows (77%). This column is unusable for the analysis. Embarked column has also some "" -values that can be imputed later on.
+
+```{r }
+
+colSums(train == "") / dim(train)[1]
+
+```
+
+## Cleaning Dataset
+
+We remove the columns that are not usable for the analysis.
+
+```{r }
+
+train_x <- select(train_x, -PassengerId, -Name, -Cabin, -Ticket)
+test_x <- select(test_x, -PassengerId, -Name, -Cabin, -Ticket)
+
+```
+
+We then convert the factor variables to be of factor type. 
+
+```{r }
+
+train_x$SibSp <- as.factor(train_x$SibSp)
+train_x$Parch <- as.factor(train_x$Parch)
+train_x$Embarked <- as.factor(train_x$Embarked)
+train_x$PClass <- as.factor(train_x$Pclass)
+
+train_y$Survived <- as.factor(train_y$Survived)
+
+test_x$SibSp <- as.factor(test_x$SibSp)
+test_x$Parch <- as.factor(test_x$Parch)
+test_x$Embarked <- as.factor(test_x$Embarked)
+test_x$PClass <- as.factor(test_x$Pclass)
+
+```
+
+We create dummy variables for each factor column, to make the columns usable for analysis.
+
+```{r }
+
+dummies <- dummyVars(~ ., data = rbind(train_x, test_x))
+train_x <-  data.frame(predict(dummies, newdata = train_x))
+test_x <- data.frame(predict(dummies, newdata = test_x))
+
+```
+
+
+We filter Parch.9 column out.
+
+```{r }
+
+train_x <- select(train_x, -Parch.9)
+test_x <- select(test_x, -Parch.9)
+
+```
+## PreProcessing
+
+Data normalization and imputation
+
+```{r }
+
+preProcValues <- preProcess(train_x, method = c("knnImpute", "center", "scale"))
+train_x <- predict(preProcValues, train_x)
+test_x <- predict(preProcValues, test_x)
+
+```
+
+
+## Training the model and making predictions
+
+### Baseline
+
+We create a baseline prediction to make sure that the built model is actually able to make better predictions. 
+
+```{r }
+
+y <- train$Survived
+mfreq <- sort(table(train$Survived),decreasing=TRUE)[1]
+base <- mfreq / length(y)
+base
+```
+
+### Training model
+
+To speed up the computing we use parrallel processing.
+
+```{r }
+
+# cluster <- makeCluster(detectCores() - 1) # convention to leave 1 core for OS
+# registerDoParallel(cluster)
+
+```
+
+Training and saving the model. We train a random forest model for the classification task.
+
+```{r }
+
+# set.seed(1991)
+# train_control <- trainControl(method="cv", number=5, allowParallel = TRUE)
+# model <- train(x = train_x,
+#                y = train_y$Survived,
+#                method="rf",
+#                train_control = train_control)
+# saveRDS(model, "rf_model.rds")
+
+
+```
+
+End parallel processing 
+
+```{r }
+
+# stopCluster(cluster)
+# registerDoSEQ()
+
+```
+
+### Prediction
+
+Loading the saved model and making prediction with the test data. 
+
+```{r }
+model <-readRDS("rf_model.rds")
+model
+pred <- predict(model, test_x)
+
+```
+
+### Building Submission File
+
+Building te submission file for Kaggle
+
+```{r }
+
+submission_data <- data.frame(PassengerId = test_id, Survived = pred)
+write.csv(submission_data, file="data/submission1.csv", row.names=FALSE)
+
+```
+
