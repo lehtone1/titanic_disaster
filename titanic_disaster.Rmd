@@ -20,7 +20,7 @@ library(doParallel)
 
 ## Summary
 
-In this project the goal was to predict, which passanger survived the Titanic shipwreck.
+In this project the goal was to predict, which passenger survived the Titanic shipwreck.
 
 Approach:
 
@@ -96,6 +96,26 @@ Repeating the process with "" -values. The Cabin column has a significant portio
 colSums(train == "") / dim(train)[1]
 
 ```
+## Feature Engineering
+
+We create an additional feature by taking the title out of the name to be an independent variable.
+
+```{r }
+
+add_title <- function(x) {
+  names <- x$Name
+  titles <- gsub(".*[, ](.*)[.].*","\\1", names)
+  x$Title <- titles
+  x
+  
+}
+
+table(train_x$title)
+
+train_x <- add_title(train_x)
+test_x <- add_title(test_x)
+
+```
 
 ## Cleaning Dataset
 
@@ -116,6 +136,7 @@ train_x$SibSp <- as.factor(train_x$SibSp)
 train_x$Parch <- as.factor(train_x$Parch)
 train_x$Embarked <- as.factor(train_x$Embarked)
 train_x$PClass <- as.factor(train_x$Pclass)
+train_x$Title <- as.factor(train_x$Title)
 
 train_y$Survived <- as.factor(train_y$Survived)
 
@@ -123,6 +144,7 @@ test_x$SibSp <- as.factor(test_x$SibSp)
 test_x$Parch <- as.factor(test_x$Parch)
 test_x$Embarked <- as.factor(test_x$Embarked)
 test_x$PClass <- as.factor(test_x$Pclass)
+test_x$Title <- as.factor(test_x$Title)
 
 ```
 
@@ -137,17 +159,19 @@ test_x <- data.frame(predict(dummies, newdata = test_x))
 ```
 
 
-We filter Parch.9 column out.
+## PreProcessing
+
+Removing near zero variability columns
 
 ```{r }
 
-train_x <- select(train_x, -Parch.9)
-test_x <- select(test_x, -Parch.9)
+nearZeros <- nearZeroVar(train_x)
+train_x <- select(train_x, -nearZeros) 
+test_x <- select(test_x, -nearZeros)
 
 ```
-## PreProcessing
 
-Data normalization and imputation
+Normalizing the data and using KNN imputation for replacing the missing values
 
 ```{r }
 
@@ -228,4 +252,20 @@ submission_data <- data.frame(PassengerId = test_id, Survived = pred)
 write.csv(submission_data, file="data/submission1.csv", row.names=FALSE)
 
 ```
+
+## Conclusion
+
+The testing accuracies recevied from Kaggle:
+
+Version 1:
+
+Initial version
+Accuracy: : 0.75598
+
+Version 2:
+
+Adding Title feature and removing near zero variance predictors
+Accuracy: 0.77990
+
+
 

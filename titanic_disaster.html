@@ -371,14 +371,13 @@ summary {
 
 <div id="summary" class="section level2">
 <h2>Summary</h2>
-<p>In this project the goal was to predict, which passanger survived the Titanic shipwreck.</p>
+<p>In this project the goal was to predict, which passenger survived the Titanic shipwreck.</p>
 <p>Approach:</p>
 <ol style="list-style-type: decimal">
 <li>Loading dataset exploring dataset structure and features</li>
 <li>Cleaning dataset (Removing unusable columns, transforming factor variables, Creating dummy variables)</li>
 <li>PreProcessing (Data normalization, imputation)</li>
-<li>Training a predictive model (Creating a baseline prediction, building a random forest classifier)</li>
-<li>Making predictions &amp; creating a submission file</li>
+<li>Training the model and making predictions (Creating a baseline prediction, building a random forest classifier, making predictions &amp; creating a submission file)</li>
 </ol>
 <p>Packages used:</p>
 <p>dplyr, caret, ggplot2, RANN, parallel, doParallel</p>
@@ -437,6 +436,22 @@ train_y &lt;- select(train, Survived)</code></pre>
 ##       SibSp       Parch      Ticket        Fare       Cabin    Embarked 
 ## 0.000000000 0.000000000 0.000000000 0.000000000 0.771043771 0.002244669</code></pre>
 </div>
+<div id="feature-engineering" class="section level2">
+<h2>Feature Engineering</h2>
+<p>We create an additional feature by taking the title out of the name to be an independent variable.</p>
+<pre class="r"><code>add_title &lt;- function(x) {
+  names &lt;- x$Name
+  titles &lt;- gsub(&quot;.*[, ](.*)[.].*&quot;,&quot;\\1&quot;, names)
+  x$Title &lt;- titles
+  x
+  
+}
+
+table(train_x$title)</code></pre>
+<pre><code>## &lt; table of extent 0 &gt;</code></pre>
+<pre class="r"><code>train_x &lt;- add_title(train_x)
+test_x &lt;- add_title(test_x)</code></pre>
+</div>
 <div id="cleaning-dataset" class="section level2">
 <h2>Cleaning Dataset</h2>
 <p>We remove the columns that are not usable for the analysis.</p>
@@ -447,30 +462,33 @@ test_x &lt;- select(test_x, -PassengerId, -Name, -Cabin, -Ticket)</code></pre>
 train_x$Parch &lt;- as.factor(train_x$Parch)
 train_x$Embarked &lt;- as.factor(train_x$Embarked)
 train_x$PClass &lt;- as.factor(train_x$Pclass)
+train_x$Title &lt;- as.factor(train_x$Title)
 
 train_y$Survived &lt;- as.factor(train_y$Survived)
 
 test_x$SibSp &lt;- as.factor(test_x$SibSp)
 test_x$Parch &lt;- as.factor(test_x$Parch)
 test_x$Embarked &lt;- as.factor(test_x$Embarked)
-test_x$PClass &lt;- as.factor(test_x$Pclass)</code></pre>
+test_x$PClass &lt;- as.factor(test_x$Pclass)
+test_x$Title &lt;- as.factor(test_x$Title)</code></pre>
 <p>We create dummy variables for each factor column, to make the columns usable for analysis.</p>
 <pre class="r"><code>dummies &lt;- dummyVars(~ ., data = rbind(train_x, test_x))
 train_x &lt;-  data.frame(predict(dummies, newdata = train_x))
 test_x &lt;- data.frame(predict(dummies, newdata = test_x))</code></pre>
-<p>We filter Parch.9 column out.</p>
-<pre class="r"><code>train_x &lt;- select(train_x, -Parch.9)
-test_x &lt;- select(test_x, -Parch.9)</code></pre>
 </div>
 <div id="preprocessing" class="section level2">
 <h2>PreProcessing</h2>
-<p>Data normalization and imputation</p>
+<p>Removing near zero variability columns</p>
+<pre class="r"><code>nearZeros &lt;- nearZeroVar(train_x)
+train_x &lt;- select(train_x, -nearZeros) 
+test_x &lt;- select(test_x, -nearZeros)</code></pre>
+<p>Normalizing the data and using KNN imputation for replacing the missing values</p>
 <pre class="r"><code>preProcValues &lt;- preProcess(train_x, method = c(&quot;knnImpute&quot;, &quot;center&quot;, &quot;scale&quot;))
 train_x &lt;- predict(preProcValues, train_x)
 test_x &lt;- predict(preProcValues, test_x)</code></pre>
 </div>
-<div id="prediction" class="section level2">
-<h2>Prediction</h2>
+<div id="training-the-model-and-making-predictions" class="section level2">
+<h2>Training the model and making predictions</h2>
 <div id="baseline" class="section level3">
 <h3>Baseline</h3>
 <p>We create a baseline prediction to make sure that the built model is actually able to make better predictions.</p>
@@ -498,7 +516,7 @@ base</code></pre>
 <pre class="r"><code># stopCluster(cluster)
 # registerDoSEQ()</code></pre>
 </div>
-<div id="prediction-1" class="section level3">
+<div id="prediction" class="section level3">
 <h3>Prediction</h3>
 <p>Loading the saved model and making prediction with the test data.</p>
 <pre class="r"><code>model &lt;-readRDS(&quot;rf_model.rds&quot;)
@@ -506,7 +524,7 @@ model</code></pre>
 <pre><code>## Random Forest 
 ## 
 ## 891 samples
-##  26 predictor
+##  19 predictor
 ##   2 classes: '0', '1' 
 ## 
 ## No pre-processing
@@ -515,9 +533,9 @@ model</code></pre>
 ## Resampling results across tuning parameters:
 ## 
 ##   mtry  Accuracy   Kappa    
-##    2    0.8035367  0.5603425
-##   14    0.8007891  0.5732623
-##   26    0.7904507  0.5531381
+##    2    0.8141100  0.5904305
+##   10    0.8107803  0.5929088
+##   19    0.7953948  0.5620254
 ## 
 ## Accuracy was used to select the optimal model using the largest value.
 ## The final value used for the model was mtry = 2.</code></pre>
