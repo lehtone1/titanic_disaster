@@ -260,11 +260,13 @@ The testing accuracies recevied from Kaggle:
 Version 1:
 
 Initial version
+
 Accuracy: : 0.75598
 
 Version 2:
 
 Adding Title feature and removing near zero variance predictors
+
 Accuracy: 0.77990
 
 

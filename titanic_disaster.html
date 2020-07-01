@@ -524,7 +524,7 @@ model</code></pre>
 <pre><code>## Random Forest 
 ## 
 ## 891 samples
-##  19 predictor
+##  14 predictor
 ##   2 classes: '0', '1' 
 ## 
 ## No pre-processing
@@ -533,9 +533,9 @@ model</code></pre>
 ## Resampling results across tuning parameters:
 ## 
 ##   mtry  Accuracy   Kappa    
-##    2    0.8141100  0.5904305
-##   10    0.8107803  0.5929088
-##   19    0.7953948  0.5620254
+##    2    0.8067400  0.5741821
+##    8    0.8062214  0.5840950
+##   14    0.7913307  0.5536102
 ## 
 ## Accuracy was used to select the optimal model using the largest value.
 ## The final value used for the model was mtry = 2.</code></pre>
@@ -547,6 +547,16 @@ model</code></pre>
 <pre class="r"><code>submission_data &lt;- data.frame(PassengerId = test_id, Survived = pred)
 write.csv(submission_data, file=&quot;data/submission1.csv&quot;, row.names=FALSE)</code></pre>
 </div>
+</div>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
+<p>The testing accuracies recevied from Kaggle:</p>
+<p>Version 1:</p>
+<p>Initial version</p>
+<p>Accuracy: : 0.75598</p>
+<p>Version 2:</p>
+<p>Adding Title feature and removing near zero variance predictors</p>
+<p>Accuracy: 0.77990</p>
 </div>
 
 
